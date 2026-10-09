@@ -102,12 +102,25 @@ def norm(url):
     url = url.strip()
     if not url or url.startswith("#"):
         return None
-    if "://" not in url:
-        url = "https://" + url
-    p = urlparse(url)
-    if not p.netloc:
+    # httpx without -silent prints [INF]/[WRN] and a banner. Those lines
+    # start with '[' and urlparse treats the bracket as an IPv6 netloc.
+    if url[0] in "[{":
         return None
-    return f"{p.scheme}://{p.netloc}"
+    token = url.split()[0].strip("\"'")
+    if "://" not in token:
+        if not re.match(r"^[A-Za-z0-9._:-]+$", token):
+            return None
+        token = "https://" + token
+    try:
+        p = urlparse(token)
+    except ValueError:
+        return None
+    host = p.netloc
+    if not host or host.startswith("[") or " " in host:
+        return None
+    if not re.match(r"^[A-Za-z0-9._:-]+$", host):
+        return None
+    return f"{p.scheme}://{host}"
 
 
 class Client:
